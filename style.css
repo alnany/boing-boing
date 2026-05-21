@@ -1,0 +1,302 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg1: #ffe0ec;
+  --bg2: #ffc2d6;
+  --ball1: #ffe4d1;   /* highlight: pale cream */
+  --ball2: #f6c6a5;   /* midtone: light skin */
+  --ball3: #d99877;   /* shadow: warm tan */
+  --tip: #ff5478;
+  --ink: #3b1c2a;
+  --milk: #fffdf6;
+}
+
+html, body {
+  width: 100%;
+  /* Use the dynamic viewport (dvh) so the page tracks the actual
+     visible area on mobile. 100% / 100vh both fall short on iOS. */
+  height: 100dvh;
+  min-height: 100dvh;
+  /* iOS-Safari fallback for older builds where dvh is unreliable —
+     -webkit-fill-available resolves to the actual visible height
+     including under the bottom toolbar / home-indicator strip. */
+  min-height: -webkit-fill-available;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: var(--ink);
+  /* Background moved to body::before (fixed full-viewport layer) so
+     the pink fill is guaranteed to reach the device edges on every
+     browser, regardless of how it interprets dvh / safe-area / the
+     dynamic toolbar geometry. */
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Bulletproof full-viewport background. position: fixed + inset: 0
+   ALWAYS spans the visible viewport regardless of html/body height
+   units, iOS URL-bar transitions, safe-area insets, or PWA standalone
+   mode — the one CSS construct that survives every quirk we've seen
+   on iPhone (incl. iPhone 17, where the persistent bottom toolbar
+   left a visible white strip with dvh-only layout). z-index: -1 keeps
+   it behind every paint layer (canvas, frame, overlay). */
+html { background: var(--bg1); }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--bg1);
+  z-index: -1;
+  /* Smooth crossfade so the bg flip during the bomb eruption doesn't
+     "snap" — it eases in over the same beat as the milk fountain. */
+  transition: background 0.35s ease;
+}
+/* When the bomb fires, the page itself becomes milk-colored. This is
+   a backstop for iOS PWA standalone mode where `position: fixed` on
+   the milk canvas can be anchored inside the safe-area inset, leaving
+   a strip behind the home indicator that the canvas never reaches.
+   Painting the body that exact strip with milk-cream means even if
+   the canvas misses pixels, those pixels read as milk, not pink. */
+body.erupting::before {
+  background: #fffdf6;
+}
+/* html bg flips too so the safe-area inset on iOS — which iOS fills
+   from html's background, NOT body's — also turns milk-cream. */
+html:has(body.erupting) { background: #fffdf6; }
+
+.frame {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.title {
+  font-family: 'Pacifico', cursive;
+  font-weight: 400;
+  font-size: clamp(48px, 10vw, 84px);
+  /* Pacifico has long descenders (the 'g' in "Boing"); line-height: 1
+     clipped them into the .stage area below, where the game-over
+     overlay's blurred backdrop and falling milk drips visibly covered
+     them. Bumping line-height + adding bottom padding keeps every
+     glyph (and the soft text-shadow halo) inside the title's own box. */
+  line-height: 1.25;
+  text-align: center;
+  color: var(--tip);
+  text-shadow:
+    0 2px 0 rgba(255,255,255,0.6),
+    0 8px 24px rgba(255, 84, 120, 0.25);
+  margin-top: 10px;
+  margin-bottom: 6px;
+  padding-bottom: 12px;
+  letter-spacing: 0.5px;
+  transform: rotate(-2deg);
+  user-select: none;
+  /* Lift the title above the milk-particle canvas (#fx, z-index: 20)
+     and the game-over overlay (z-index: 10) so neither layer can ever
+     obscure it after the bomb. position: relative is required for
+     z-index to take effect on a static-by-default element. */
+  position: relative;
+  z-index: 40;
+}
+
+.stage {
+  position: relative;
+  width: min(560px, 100%);
+  flex: 1;
+  margin-top: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.grid {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 14px;
+  padding: 14px;
+}
+
+/* The ball */
+.ball {
+  position: relative;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 32%),
+    radial-gradient(circle at 50% 55%, var(--ball1) 0%, var(--ball2) 60%, var(--ball3) 100%);
+  box-shadow:
+    inset -8px -14px 22px rgba(150, 90, 60, 0.22),
+    inset 6px 10px 18px rgba(255, 255, 255, 0.45),
+    0 10px 18px rgba(200, 130, 100, 0.22);
+  cursor: pointer;
+  transform-origin: center;
+  /* Allow simultaneous independent taps across the grid: disable the
+     browser's double-tap zoom + 300ms click delay on each ball so every
+     pointerdown fires immediately and in parallel. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Jello physics writes transform directly on the element via JS.
+     No baseline CSS animation — the device-motion loop owns the motion. */
+}
+.ball::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 18%; height: 18%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #e48a8a 0%, #a44a4a 80%);
+  box-shadow: 0 0 0 4px rgba(255, 220, 210, 0.45);
+}
+.ball.jiggle { animation: jiggle 0.9s cubic-bezier(.2,.8,.2,1.2) both; }
+@keyframes jiggle {
+  0%    { transform: scale(1, 1); }
+  8%    { transform: scale(1.3, 0.75); }     /* squish wide */
+  18%   { transform: scale(0.78, 1.28); }    /* stretch tall */
+  28%   { transform: scale(1.18, 0.85); }    /* bounce back */
+  38%   { transform: scale(0.88, 1.15); }
+  48%   { transform: scale(1.08, 0.93); }
+  58%   { transform: scale(0.95, 1.06); }
+  68%   { transform: scale(1.02, 0.98); opacity: 1; }
+  78%   { transform: scale(1, 1); opacity: 1; }
+  100%  { transform: scale(0, 0); opacity: 0; }
+}
+
+.ball.warn { animation: warn 1.1s ease-in-out both; z-index: 5; }
+@keyframes warn {
+  0%   { transform: scale(1) rotate(0); }
+  10%  { transform: scale(1.12, 0.88) rotate(-6deg); }
+  20%  { transform: scale(0.9, 1.14) rotate(6deg); }
+  30%  { transform: scale(1.16, 0.84) rotate(-8deg); }
+  40%  { transform: scale(0.88, 1.18) rotate(8deg); }
+  50%  { transform: scale(1.2, 0.82) rotate(-10deg); }
+  60%  { transform: scale(0.85, 1.22) rotate(10deg); }
+  70%  { transform: scale(1.26, 0.8) rotate(-12deg); }
+  80%  { transform: scale(0.82, 1.26) rotate(12deg); }
+  90%  { transform: scale(1.32, 0.74) rotate(0); }
+  100% { transform: scale(1.45) rotate(0); }
+}
+
+.ball.boom { animation: boom 0.9s cubic-bezier(.4, .1, .4, 1) both; z-index: 25; }
+@keyframes boom {
+  0%   { transform: scale(1.45) rotate(0); }
+  10%  { transform: scale(1.6, 1.4) rotate(-4deg); }
+  20%  { transform: scale(1.4, 1.7) rotate(4deg); }
+  35%  { transform: scale(1.8, 1.3) rotate(-6deg); }
+  50%  { transform: scale(1.3, 1.9) rotate(6deg); }
+  65%  { transform: scale(2.0, 1.2) rotate(-8deg); }
+  80%  { transform: scale(2.3) rotate(0); opacity: 1; }
+  90%  { transform: scale(2.6) rotate(0); opacity: 0.7; }
+  100% { transform: scale(0) rotate(0); opacity: 0; }
+}
+
+/* The bomb's visible life used to be split across `.warn` (1.1s shake) and
+   `.boom` (0.9s inflate-and-pop) with a JS class swap at the boundary. The
+   swap raced against rAF / animationend / inline-style writes from the
+   device-motion loop, which intermittently dropped the visual on Safari.
+   `.detonate` runs both phases as a single 2.0s animation so the visual is
+   atomic — nothing in JS can drop or interrupt a phase. The two original
+   phases keep their distinct easings via the comma-list animation syntax.
+   `forwards` fill on `warn` holds it at scale(1.45) precisely when `boom`
+   starts, so the seam is invisible. */
+.ball.detonate {
+  animation:
+    warn 1.1s ease-in-out 0s forwards,
+    boom 0.9s cubic-bezier(.4, .1, .4, 1) 1.1s forwards;
+  z-index: 25;
+}
+
+/* Shake the whole stage when bomb is hit — long sustained rumble that
+   slowly decays over ~2.6s, so the eruption really feels earth-moving. */
+.stage.shake { animation: shake 2.6s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shake {
+  0%   { transform: translate(0,0) rotate(0); }
+  /* Phase 1 (0–30%): violent initial jolt */
+  3%   { transform: translate(-10px, 4px)  rotate(-1.6deg); }
+  6%   { transform: translate( 9px,-5px)   rotate( 1.6deg); }
+  9%   { transform: translate(-8px, 4px)   rotate(-1.3deg); }
+  12%  { transform: translate( 9px, 3px)   rotate( 1.3deg); }
+  15%  { transform: translate(-7px,-3px)   rotate(-1.1deg); }
+  18%  { transform: translate( 8px, 4px)   rotate( 1.1deg); }
+  22%  { transform: translate(-6px, 3px)   rotate(-0.9deg); }
+  26%  { transform: translate( 7px,-3px)   rotate( 0.9deg); }
+  /* Phase 2 (30–65%): strong rumble */
+  30%  { transform: translate(-6px, 3px)   rotate(-0.8deg); }
+  35%  { transform: translate( 6px,-2px)   rotate( 0.7deg); }
+  40%  { transform: translate(-5px, 2px)   rotate(-0.6deg); }
+  45%  { transform: translate( 5px, 2px)   rotate( 0.6deg); }
+  50%  { transform: translate(-4px,-2px)   rotate(-0.5deg); }
+  55%  { transform: translate( 4px, 2px)   rotate( 0.5deg); }
+  60%  { transform: translate(-3px, 2px)   rotate(-0.4deg); }
+  65%  { transform: translate( 3px,-1px)   rotate( 0.3deg); }
+  /* Phase 3 (65–100%): residual tremor fading to rest */
+  70%  { transform: translate(-2px, 2px)   rotate(-0.25deg); }
+  76%  { transform: translate( 2px,-1px)   rotate( 0.2deg); }
+  82%  { transform: translate(-2px, 1px)   rotate(-0.15deg); }
+  88%  { transform: translate( 1px, 1px)   rotate( 0.1deg); }
+  94%  { transform: translate(-1px, 0)     rotate(-0.05deg); }
+  100% { transform: translate(0,0)         rotate(0); }
+}
+
+#fx {
+  /* Anchor at the top-left of the viewport. JS sets style.width and
+     style.height to comfortably overshoot the bottom edge so iOS PWA's
+     persistent home-indicator strip is always covered, even if iOS
+     measures position:fixed against the safe-area inset rather than
+     the literal screen edge. The extra height is purely buffer — it
+     extends past the home indicator and is invisible. */
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 220, 232, 0.55);
+  backdrop-filter: blur(6px);
+  border-radius: 16px;
+  z-index: 10;
+  animation: fadeIn 0.4s ease;
+}
+.overlay[hidden] { display: none !important; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay .card {
+  background: transparent;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+/* Play-again button IS a ball — uses the exact .ball art via shared class,
+   just sized up. All gradients, shadows, and the center dot come from
+   the .ball rule; this block only overrides size, resets <button> chrome,
+   and adds a subtle breathing idle. */
+.overlay button.ball {
+  border: none;
+  padding: 0;
+  outline: none;
+  width: min(58vw, 280px);
+  height: min(58vw, 280px);
+  /* Device-motion physics writes these custom props; hover/active then
+     stack a scale on top via the separate `scale` property. */
+  --wx: 0px;
+  --wy: 0px;
+  --rz: 0deg;
+  transform: translate3d(var(--wx), var(--wy), 0) rotate(var(--rz));
+  scale: 1;
+  transition: scale 0.18s ease;
+}
+.overlay button.ball:hover  { scale: 1.03; }
+.overlay button.ball:active { scale: 0.94; }
+
+@media (max-width: 480px) {
+  .grid { gap: 10px; padding: 8px; }
+}

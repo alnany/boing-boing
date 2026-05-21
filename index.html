@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Boing Boing</title>
+<meta name="description" content="A cute bouncy-ball minesweeper." />
+<meta name="theme-color" content="#ffe0ec" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Boing Boing" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/alnany/boing-boing-assets/main/apple-touch-icon.png?v=5" />
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="https://raw.githubusercontent.com/alnany/boing-boing-assets/main/apple-touch-icon.png?v=5" />
+<link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/alnany/boing-boing-assets/main/favicon-32.png?v=5" />
+<link rel="icon" type="image/png" sizes="64x64" href="https://raw.githubusercontent.com/alnany/boing-boing-assets/main/favicon-64.png?v=5" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+<link rel="stylesheet" href="style.css?v=55" />
+</head>
+<body>
+  <div class="frame">
+    <h1 class="title">Boing Boing</h1>
+
+    <main class="stage" id="stage">
+      <div class="grid" id="grid"></div>
+
+      <div class="overlay" id="overlay" hidden>
+        <div class="card">
+          <button id="again" class="ball" aria-label="Play again"></button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <canvas id="fx"></canvas>
+
+  <script src="audio.js?v=55"></script>
+  <script src="game.js?v=55"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

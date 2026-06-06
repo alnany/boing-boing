@@ -2,7 +2,7 @@
 //
 // Icons live as data: URIs inside index.html and manifest.webmanifest, so
 // the SW only needs to cache those two text files (plus the app shell).
-const CACHE = 'boing-boing-v37';
+const CACHE = 'boing-boing-v38';
 const ASSETS = [
   './',
   './index.html',
